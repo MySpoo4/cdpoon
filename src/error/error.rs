@@ -8,6 +8,7 @@ pub enum Error {
     ConnectionError { msg: String },
     WriteError { msg: String },
     ReadError { msg: String },
+    NoConnectionError,
     NoMessage,
 }
 
@@ -26,6 +27,7 @@ impl fmt::Display for Error {
             Error::ConnectionError { msg } => write!(f, "Connection error message: '{}'", msg),
             Error::WriteError { msg } => write!(f, "Failed to write to socket. Message: '{}'", msg),
             Error::ReadError { msg } => write!(f, "Failed to read from socket. Message: '{}'", msg),
+            Error::NoConnectionError => write!(f, "A connection has yet to been created"),
             Error::NoMessage => write!(f, "No message"),
         }
     }

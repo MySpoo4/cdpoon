@@ -1,16 +1,18 @@
+use serde_json::Value;
 use tokio::net::TcpStream;
 use tokio_tungstenite::client_async;
 
 use url::Url;
 
 use crate::error::{Error, Result};
-use crate::models::Tab;
+use crate::models::{Cmd, Tab};
 
 use super::CdpConnection;
 
 pub struct CdpClient {
     host: String,
     port: u16,
+    connection: Option<CdpConnection>,
 }
 
 impl CdpClient {
@@ -22,6 +24,7 @@ impl CdpClient {
         Self {
             host: host.to_string(),
             port,
+            connection: None,
         }
     }
 
@@ -50,15 +53,16 @@ impl CdpClient {
             .map(|v| v.into_iter().filter(|t| t.r#type == "iframe").collect())
     }
 
-    pub async fn connect_to_target(&self, target_id: &str) -> Result<CdpConnection> {
+    pub async fn connect_to_target(&mut self, target_id: &str) -> Result<&Self> {
         let ws_url = format!(
             "ws://{}:{}/devtools/page/{}",
             self.host, self.port, target_id
         );
-        CdpClient::make_connection(&ws_url, self.port).await
+        self.connection = Some(CdpClient::make_connection(&ws_url, self.port).await?);
+        Ok(self)
     }
 
-    pub async fn connect_to_tab(&self, tab_index: usize) -> Result<CdpConnection> {
+    pub async fn connect_to_tab(&mut self, tab_index: usize) -> Result<&Self> {
         let tabs = self.get_tabs().await?;
         let ws_url = match tabs.get(tab_index) {
             Some(tab) => tab.webSocketDebuggerUrl.clone(),
@@ -69,7 +73,15 @@ impl CdpClient {
             }
         };
 
-        CdpClient::make_connection(&ws_url, self.port).await
+        self.connection = Some(CdpClient::make_connection(&ws_url, self.port).await?);
+        Ok(self)
+    }
+
+    pub async fn send<'a>(&mut self, cmd: Cmd<'a>) -> Result<Value> {
+        match self.connection.as_mut() {
+            Some(connection) => connection.send(cmd).await,
+            None => Err(Error::NoConnectionError),
+        }
     }
 
     async fn make_connection(str_url: &str, port: u16) -> Result<CdpConnection> {

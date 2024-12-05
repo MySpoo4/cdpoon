@@ -1,9 +1,8 @@
-use core::str;
 use futures_util::{
     stream::{SplitSink, SplitStream},
     SinkExt, StreamExt,
 };
-use serde_json::{json, Map, Value};
+use serde_json::{json, Value};
 use std::str::FromStr;
 use tokio::net::TcpStream;
 use tokio::time::{timeout, Duration};
@@ -15,7 +14,10 @@ use tokio_tungstenite::{
     WebSocketStream,
 };
 
-use crate::error::{Error, Result};
+use crate::{
+    error::{Error, Result},
+    models::Cmd,
+};
 
 pub struct CdpConnection {
     write: SplitSink<WebSocketStream<TcpStream>, Message>,
@@ -33,15 +35,11 @@ impl CdpConnection {
         }
     }
 
-    pub async fn send(
-        &mut self,
-        method: &str,
-        params: Map<String, MessageParameter>,
-    ) -> Result<Value> {
+    pub async fn send<'a>(&mut self, cmd: Cmd<'a>) -> Result<Value> {
         let data = json!({
             "id": self.get_id(),
-            "method": method,
-            "params": params
+            "method": cmd.method,
+            "params": cmd.params,
         });
 
         self.write
@@ -111,14 +109,12 @@ impl CdpConnection {
 //     }
 // }
 
-pub type MessageParameter = Value;
-
 #[macro_export]
 macro_rules! params {
     ($( $key:literal => $value:expr ),*) => {{
         let mut map = serde_json::Map::new();
         $(
-            map.insert($key.to_string(), crate::client::connection::MessageParameter::from($value));
+            map.insert($key.to_string(), crate::models::MessageParameter::from($value));
         )*
         map
     }};

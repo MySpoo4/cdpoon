@@ -1,3 +1,5 @@
+pub use crate as cdpoon;
+
 pub mod client;
 pub mod error;
 pub mod macros;
@@ -14,6 +16,7 @@ mod tests {
     }
 
     async fn run() {
+        let a = params!("a" => "b");
         // let mut cdp = client::CdpClient::custom("localhost", 9222)
         //     .connect_to_tab(0)
         //     .await

@@ -1,5 +1,6 @@
 pub mod client;
 pub mod error;
+pub mod macros;
 pub mod models;
 
 #[cfg(test)]

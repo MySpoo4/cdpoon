@@ -16,7 +16,7 @@ use tokio_tungstenite::{
 
 use crate::{
     error::{Error, Result},
-    models::Cmd,
+    models::{client::Event, ClientResponse, Cmd},
 };
 
 pub struct CdpConnection {
@@ -35,7 +35,7 @@ impl CdpConnection {
         }
     }
 
-    pub async fn send<'a>(&mut self, cmd: Cmd<'a>) -> Result<Value> {
+    pub async fn send<'a>(&mut self, cmd: Cmd<'a>) -> Result<ClientResponse> {
         let id = self.get_id();
         let data = json!({
             "id": id,
@@ -52,32 +52,35 @@ impl CdpConnection {
         self.read_res(id).await
     }
 
-    async fn read_res(&mut self, msg_id: i64) -> Result<Value> {
+    async fn read_res(&mut self, msg_id: i64) -> Result<ClientResponse> {
         const TIMEOUT: Duration = Duration::from_secs(3);
         loop {
-            let msg = self.read_next(TIMEOUT).await?;
+            let mut msg = self.read_next(TIMEOUT).await?;
 
             // Check if the message method matches the message id
             if let Some(id) = msg.get("id").and_then(|m| m.as_i64()) {
                 if id == msg_id {
                     // Return the matched message
-                    return Ok(msg);
+                    return match msg["result"].take() {
+                        Value::Object(map) => Ok(map),
+                        _ => Ok(serde_json::Map::new()),
+                    };
                 }
             }
         }
     }
 
-    pub async fn subscribe_to_event(&mut self, event_method: &str) -> Result<Value> {
+    pub async fn subscribe_to_event<'a>(&mut self, event: Event<'a>) -> Result<ClientResponse> {
         const TIMEOUT: Duration = Duration::from_secs(3);
         loop {
             let msg = self.read_next(TIMEOUT).await?;
 
             // Check if the method matches the given event method
-            if let Some(method) = msg.get("method").and_then(|m| m.as_str()) {
-                if method == event_method {
-                    // Return the matched event msg
-                    return Ok(msg);
-                }
+            if event.matches(&msg) {
+                return match msg {
+                    Value::Object(map) => Ok(map),
+                    _ => Ok(serde_json::Map::new()),
+                };
             }
         }
     }

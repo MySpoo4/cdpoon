@@ -14,40 +14,51 @@ async fn main() {
         })
         .await
         .unwrap();
+    println!("{:#?}", root_node_response);
     // Navigate to the desired URL
-    client
+    let a = client
         .send(models::Cmd {
             method: "Page.navigate",
             params: params!("url" => "https://www.novelupdates.com"),
         })
         .await
         .unwrap();
+    println!("{:#?}", a);
 
-    client.wait_for_event("Page.loadEventFired").await.unwrap();
-    // let root_node_response = client
-    //     .send(models::Cmd {
-    //         method: "DOM.getDocument",
-    //         params: params!(
-    //             // "pierce" => true,
-    //             // "depth" => -1
-    //         ),
-    //     })
-    //     .await
-    //     .unwrap();
-    //
-    // println!("{:?}", root_node_response);
-
-    let res = client
+    let frame_id = a.get("frameId").unwrap().as_str().unwrap();
+    println!("{:#?}", frame_id);
+    let b = client
+        .wait_for_event(models::Event {
+            method: "Page.frameStoppedLoading",
+            params: params!("frameId" => frame_id),
+        })
+        .await
+        .unwrap();
+    println!("b: {:#?}", b);
+    let root_node_response = client
         .send(models::Cmd {
-            method: "Runtime.enable",
-            params: params!(),
+            method: "DOM.getDocument",
+            params: params!(
+                // "pierce" => true,
+                // "depth" => -1
+            ),
         })
         .await
         .unwrap();
 
-    let xpath_expr = r#"
-        document.evaluate("//span[text()="Novel Updates"]",document,null,XPathResult.ORDERED_NODE_SNAPSHOT_TYPE,null).snapshotItem(0)
-    "#;
+    // println!("{:?}", root_node_response);
+    //
+    // let res = client
+    //     .send(models::Cmd {
+    //         method: "Runtime.enable",
+    //         params: params!(),
+    //     })
+    //     .await
+    //     .unwrap();
+    //
+    // let xpath_expr = r#"
+    //     document.evaluate("//span[text()="Novel Updates"]",document,null,XPathResult.ORDERED_NODE_SNAPSHOT_TYPE,null).snapshotItem(0)
+    // "#;
     let res = client
         .send(models::Cmd {
             method: "DOM.enable",
@@ -68,10 +79,11 @@ async fn main() {
         .await
         .unwrap();
 
-    println!("{:?}", res);
+    println!("res: {:?}", res);
 
-    let search_id = res["result"]["searchId"].as_str().unwrap();
-    let result_count = res["result"]["resultCount"].as_i64().unwrap_or(0);
+    let search_id = res["searchId"].as_str().unwrap();
+    println!("search_id: {}", search_id);
+    let result_count = res["resultCount"].as_i64().unwrap_or(0);
     let res = client
         .send(models::Cmd {
             method: "DOM.getSearchResults",
@@ -84,9 +96,18 @@ async fn main() {
         .await
         .unwrap();
 
-    if let Some(node_ids) = res["result"]["nodeIds"].as_array() {
+    if let Some(node_ids) = res["nodeIds"].as_array() {
         for node_id in node_ids {
             println!("Node ID: {:?}", node_id);
+            // Get the outer HTML of the element
+            let html_response = client
+                .send(models::Cmd {
+                    method: "DOM.getOuterHTML",
+                    params: params!("nodeId" => node_id.as_i64()),
+                })
+                .await
+                .unwrap();
+            println!("{:#?}", html_response);
         }
     } else {
         println!("No node IDs found.");

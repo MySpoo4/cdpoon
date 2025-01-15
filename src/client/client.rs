@@ -5,7 +5,8 @@ use tokio_tungstenite::client_async;
 use url::Url;
 
 use crate::error::{Error, Result};
-use crate::models::{Cmd, Tab};
+use crate::models::client::Event;
+use crate::models::{ClientResponse, Cmd, Tab};
 
 use super::CdpConnection;
 
@@ -79,16 +80,16 @@ impl CdpClient {
         Ok(self)
     }
 
-    pub async fn send<'a>(&mut self, cmd: Cmd<'a>) -> Result<Value> {
+    pub async fn send<'a>(&mut self, cmd: Cmd<'a>) -> Result<ClientResponse> {
         match self.connection.as_mut() {
             Some(connection) => connection.send(cmd).await,
             None => Err(Error::NoConnectionError),
         }
     }
 
-    pub async fn wait_for_event(&mut self, event_method: &str) -> Result<Value> {
+    pub async fn wait_for_event<'a>(&mut self, event: Event<'a>) -> Result<ClientResponse> {
         match self.connection.as_mut() {
-            Some(connection) => connection.subscribe_to_event(event_method).await,
+            Some(connection) => connection.subscribe_to_event(event).await,
             None => Err(Error::NoConnectionError),
         }
     }

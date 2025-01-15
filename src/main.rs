@@ -2,7 +2,7 @@ use cdpoon::*;
 
 #[tokio::main]
 async fn main() {
-    let mut client = client::CdpClient::custom("localhost", 9222);
+    let client = client::CdpClient::custom("localhost", 9222);
 
     // Connect to the first tab
     client.connect_to_tab(0).await.unwrap();
@@ -40,7 +40,7 @@ async fn main() {
             method: "DOM.getDocument",
             params: params!(
                 // "pierce" => true,
-                // "depth" => -1
+                "depth" => 1
             ),
         })
         .await
@@ -72,7 +72,7 @@ async fn main() {
         .send(models::Cmd {
             method: "DOM.performSearch",
             params: params!(
-                "query" => "//span[text()='Novel Updates']",
+                "query" => "//*[contains(text(), 'ElloTL')]",
                 "includeUserAgentShadowDOM" => true
             ),
         })

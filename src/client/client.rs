@@ -59,10 +59,11 @@ impl CdpClient {
             self.host, self.port, target_id
         );
         self.connection = Some(CdpClient::make_connection(&ws_url, self.port).await?);
+        self.setup_connection().await?;
         Ok(self)
     }
 
-    pub async fn connect_to_tab(&mut self, tab_index: usize) -> Result<&Self> {
+    pub async fn connect_to_tab(&mut self, tab_index: usize) -> Result<&mut Self> {
         let tabs = self.get_tabs().await?;
         let ws_url = match tabs.get(tab_index) {
             Some(tab) => tab.webSocketDebuggerUrl.clone(),
@@ -74,12 +75,20 @@ impl CdpClient {
         };
 
         self.connection = Some(CdpClient::make_connection(&ws_url, self.port).await?);
+        self.setup_connection().await?;
         Ok(self)
     }
 
     pub async fn send<'a>(&mut self, cmd: Cmd<'a>) -> Result<Value> {
         match self.connection.as_mut() {
             Some(connection) => connection.send(cmd).await,
+            None => Err(Error::NoConnectionError),
+        }
+    }
+
+    pub async fn wait_for_event(&mut self, event_method: &str) -> Result<Value> {
+        match self.connection.as_mut() {
+            Some(connection) => connection.subscribe_to_event(event_method).await,
             None => Err(Error::NoConnectionError),
         }
     }
@@ -99,6 +108,46 @@ impl CdpClient {
         Err(Error::ConnectionError {
             msg: "Failed to connect".to_string(),
         })
+    }
+
+    async fn setup_connection(&mut self) -> Result<()> {
+        // let res = self
+        //     .send(Cmd {
+        //         method: "Runtime.evaluate",
+        //         params: params!("expression" => r#"
+        //             // Css
+        //             window.$ = (selector) => document.querySelector(selector);
+        //             window.$$ = (selector) => document.querySelectorAll(selector);
+        //             // Xpath
+        //             window.$x = (xpath) => {
+        //                 const result = document.evaluate(
+        //                     xpath,
+        //                     document,
+        //                     null,
+        //                     XPathResult.FIRST_ORDERED_NODE_TYPE,
+        //                     null
+        //                 );
+        //                 return result.singleNodeValue;
+        //             };
+        //             window.$$x = (xpath) => {
+        //                 const result = document.evaluate(
+        //                     xpath,
+        //                     document,
+        //                     null,
+        //                     XPathResult.ORDERED_NODE_SNAPSHOT_TYPE,
+        //                     null
+        //                 );
+        //                 const elements = [];
+        //                 for (let i = 0; i < result.snapshotLength; i++) {
+        //                     elements.push(result.snapshotItem(i));
+        //                 }
+        //                 return elements;
+        //             };
+        //         "#),
+        //     })
+        //     .await?;
+        // println!("{:?}", res);
+        Ok(())
     }
 }
 
